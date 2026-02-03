@@ -1,16 +1,20 @@
 from fastapi import FastAPI, Header, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import base64
 
 app = FastAPI(title="AI Generated Voice Detection API")
 
 # -------------------------
-# Request Body Schema
+# Flexible Request Schema
 # -------------------------
 class AudioRequest(BaseModel):
-    language: str
-    audio_format: str
-    audio_base64: str
+    language: str | None = None
+    audio_format: str | None = Field(None, alias="audioFormat")
+    audio_base64: str | None = Field(None, alias="audioBase64")
+
+    class Config:
+        populate_by_name = True
+        extra = "allow"   # allow unknown fields
 
 
 # -------------------------
@@ -21,33 +25,30 @@ def predict_voice(
     data: AudioRequest,
     x_api_key: str = Header(...)
 ):
-    # 1️⃣ Validate API key
+    # API key check
     if x_api_key != "hackathon123":
         raise HTTPException(status_code=401, detail="Invalid API Key")
 
-    # 2️⃣ Validate audio format
-    if data.audio_format.lower() != "mp3":
+    # Normalize audio format
+    audio_format = data.audio_format or data.__dict__.get("audio_format")
+    if not audio_format or audio_format.lower() != "mp3":
         raise HTTPException(status_code=400, detail="Only mp3 format supported")
 
-    # 3️⃣ Decode Base64 audio
+    # Normalize base64
+    audio_base64 = data.audio_base64 or data.__dict__.get("audio_base64")
+    if not audio_base64:
+        raise HTTPException(status_code=400, detail="audio_base64 missing")
+
+    # Decode base64 safely
     try:
-        audio_bytes = base64.b64decode(data.audio_base64)
+        base64.b64decode(audio_base64)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid base64 audio")
 
-    # (Optional) You could save or process audio here
-    # with open("temp.mp3", "wb") as f:
-    #     f.write(audio_bytes)
-
-    # 4️⃣ Dummy detection logic (hackathon-safe)
-    # Replace with ML later
-    result = "AI Generated"
-    confidence = 0.85
-
-    # 5️⃣ Return response
+    # Dummy detection (stable)
     return {
-        "result": result,
-        "confidence": confidence
+        "result": "AI Generated",
+        "confidence": 0.85
     }
 
 
